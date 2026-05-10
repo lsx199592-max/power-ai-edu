@@ -5,12 +5,12 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 interface CourseWithExpand {
   id: string;
   title: string;
-  cover_image: string;
-  instructor_name: string;
-  price: number;
-  original_price: number;
-  students_count: number;
-  is_published: boolean;
+  cover_image: string | null;
+  instructor_name: string | null;
+  price: number | null;
+  original_price: number | null;
+  students_count: number | null;
+  is_published: boolean | null;
   parent_id?: string | null;
   children?: CourseWithExpand[];
   expanded?: boolean;
@@ -34,7 +34,7 @@ const AdminCourses: React.FC = () => {
     !c.parent_id && c.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const formatPrice = (price: number) => `¥${price}`;
+  const formatPrice = (price: number | null) => price != null ? `¥${price}` : '¥0';
 
   const renderCourseRow = (course: CourseWithExpand, level: number = 0) => (
     <React.Fragment key={course.id}>
@@ -50,17 +50,17 @@ const AdminCourses: React.FC = () => {
               </button>
             )}
             {(!course.children || course.children.length === 0) && level === 0 && <span className="w-6 mr-2" />}
-            <img src={course.cover_image} alt={course.title} className="w-16 h-12 object-cover rounded" />
+            <img src={course.cover_image || 'https://via.placeholder.com/64x48'} alt={course.title} className="w-16 h-12 object-cover rounded" />
             <div className="ml-4">
               <div className="text-sm font-medium text-gray-900">{course.title}</div>
-              <div className="text-sm text-gray-500">{course.instructor_name}</div>
+              <div className="text-sm text-gray-500">{course.instructor_name || '未知讲师'}</div>
             </div>
           </div>
         </td>
         <td className="px-6 py-4">
           <span className="text-sm font-medium text-gray-900">{formatPrice(course.price)}</span>
         </td>
-        <td className="px-6 py-4 text-sm text-gray-500">{course.students_count}</td>
+        <td className="px-6 py-4 text-sm text-gray-500">{course.students_count ?? 0}</td>
         <td className="px-6 py-4">
           <button
             onClick={() => togglePublish(course.id)}
