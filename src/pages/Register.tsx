@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, Mail, Lock, User, CheckCircle } from 'lucide-react';
-import { supabase } from '../supabase/client';
+import { supabase } from '../lib/supabase';
 
 const Register: React.FC = () => {
   const navigate = useNavigate();

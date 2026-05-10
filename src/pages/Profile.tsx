@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { User, Mail, Award, BookOpen, Download, Settings, LogOut } from 'lucide-react';
-import { supabase } from '../supabase/client';
+import { supabase } from '../lib/supabase';
 import { Profile as ProfileType, Membership, UserCourse, UserResource } from '../types';
 
 const Profile: React.FC = () => {

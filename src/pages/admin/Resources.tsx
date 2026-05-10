@@ -18,12 +18,14 @@ const AdminResources: React.FC = () => {
     }
   };
 
-  const getCategoryName = (categoryId: string) => {
+  const getCategoryName = (categoryId: string | null) => {
+    if (!categoryId) return '未分类';
     const category = mockResourceCategories.find(c => c.id === categoryId);
     return category?.name || '未分类';
   };
 
-  const formatFileSize = (bytes: number) => {
+  const formatFileSize = (bytes: number | null) => {
+    if (!bytes) return '0 KB';
     if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(2) + ' GB';
     if (bytes >= 1048576) return (bytes / 1048576).toFixed(2) + ' MB';
     return (bytes / 1024).toFixed(2) + ' KB';
