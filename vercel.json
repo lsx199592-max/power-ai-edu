@@ -1,15 +1,10 @@
 {
   "version": 2,
   "name": "power-ai-edu",
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
-    }
-  ],
+  "framework": null,
+  "buildCommand": "pnpm run build",
+  "outputDirectory": "dist",
+  "installCommand": "pnpm install",
   "routes": [
     {
       "src": "/(.*)",
