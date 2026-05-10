@@ -709,7 +709,7 @@ packages:
     engines: {node: '>=20.0.0'}
 
   '@supabase/supabase-js@2.98.0':
-    resolution: {integrity: sha512-Ohc97CtInLwZyiSASz7tT9/Abm/vqnIbO9REp+PivVUII8UZsuI3bngRQnYgJdFoOIwvaEII1fX1qy8x0CyNiw==, tarball: https://registry.anpm.alibaba-inc.com/@supabase/supabase-js/-/supabase-js-2.98.0.tgz}
+    resolution: {integrity: sha512-Ohc97CtInLwZyiSASz7tT9/Abm/vqnIbO9REp+PivVUII8UZsuI3bngRQnYgJdFoOIwvaEII1fX1qy8x0CyNiw==, tarball: https://https://registry.npmmirror.com}
     engines: {node: '>=20.0.0'}
 
   '@types/body-parser@1.19.6':
