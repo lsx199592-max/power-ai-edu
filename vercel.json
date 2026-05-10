@@ -4,7 +4,11 @@
   "framework": null,
   "buildCommand": "pnpm run build",
   "outputDirectory": "dist",
-  "installCommand": "pnpm install",
+  "installCommand": "pnpm install --registry https://registry.npmjs.org",
+  "env": {
+    "NPM_CONFIG_REGISTRY": "https://registry.npmjs.org",
+    "PNPM_REGISTRY": "https://registry.npmjs.org"
+  },
   "routes": [
     {
       "src": "/(.*)",
