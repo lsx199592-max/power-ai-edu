@@ -2,12 +2,13 @@
   "version": 2,
   "name": "power-ai-edu",
   "framework": null,
-  "buildCommand": "pnpm run build",
+  "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "installCommand": "pnpm install --registry https://registry.npmjs.org",
+  "installCommand": "npm install",
   "env": {
     "NPM_CONFIG_REGISTRY": "https://registry.npmjs.org",
-    "PNPM_REGISTRY": "https://registry.npmjs.org"
+    "REACT_APP_SUPABASE_URL": "https://etpuquqxzzsjyiiixdfw.supabase.co",
+    "REACT_APP_SUPABASE_ANON_KEY": "sb_publishable_c4bRKSnuD_BTRzglr9AZdw_DBmwbU-m"
   },
   "routes": [
     {
@@ -34,7 +35,25 @@
       ]
     },
     {
-      "source": "/bundle.js",
+      "source": "/vendors-*.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/main-*.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/*.chunk.js",
       "headers": [
         {
           "key": "Cache-Control",
