@@ -1,14 +1,19 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, FileSpreadsheet, Check, X, Download, AlertCircle, Edit2, Save } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 
 interface PreviewCourse {
   id: string;
   title: string;
   slug: string;
   price: number;
+  original_price: number;
   category: string;
   level: string;
+  description: string;
+  cover_image: string;
+  instructor_name: string;
   valid: boolean;
   error?: string;
   isEditing?: boolean;
@@ -21,7 +26,35 @@ const BatchUploadCourses: React.FC = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const parseCSV = (text: string): PreviewCourse[] => {
+    const lines = text.trim().split('\n');
+    if (lines.length < 2) return [];
+    const headers = lines[0].split(',').map(h => h.trim());
+    return lines.slice(1).map((line, idx) => {
+      const vals = line.split(',').map(v => v.trim());
+      const get = (name: string) => vals[headers.indexOf(name)] || '';
+      const title = get('课程名称');
+      const slug = get('slug') || title.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
+      const item: PreviewCourse = {
+        id: String(idx + 1),
+        title,
+        slug,
+        price: parseFloat(get('价格')) || 0,
+        original_price: parseFloat(get('原价')) || 0,
+        category: get('分类'),
+        level: get('级别') || 'beginner',
+        description: get('描述') || '',
+        cover_image: get('封面图URL') || '',
+        instructor_name: get('讲师') || '',
+        valid: !!title,
+        error: title ? undefined : '课程名称不能为空',
+      };
+      return item;
+    });
+  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -32,50 +65,39 @@ const BatchUploadCourses: React.FC = () => {
     setFile(f);
     setIsUploading(true);
     setUploadProgress(0);
-    
-    const interval = setInterval(() => {
-      setUploadProgress(p => {
-        if (p >= 100) {
-          clearInterval(interval);
-          setIsUploading(false);
-          parseData();
-          return 100;
-        }
-        return p + 10;
-      });
-    }, 100);
-  };
-
-  const parseData = () => {
-    const mockData: PreviewCourse[] = [
-      { id: '1', title: '电力巡检基础', slug: 'power-basic', price: 99, category: '电力巡检 AI', level: 'beginner', valid: true },
-      { id: '2', title: '智能电网入门', slug: 'grid-intro', price: 129, category: '电网调度 AI', level: 'beginner', valid: true },
-      { id: '3', title: '', slug: 'invalid', price: 0, category: '', level: '', valid: false, error: '课程名称不能为空' },
-    ];
-    setPreviewData(mockData);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      setUploadProgress(100);
+      setIsUploading(false);
+      setPreviewData(parseCSV(text));
+    };
+    reader.onprogress = (e) => {
+      if (e.lengthComputable) setUploadProgress(Math.round((e.loaded / e.total) * 100));
+    };
+    reader.readAsText(f);
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
     const droppedFile = e.dataTransfer.files[0];
-    if (droppedFile?.name.match(/\.(csv|xlsx)$/)) processFile(droppedFile);
+    if (droppedFile?.name.match(/\.(csv|txt)$/)) processFile(droppedFile);
   };
 
   const downloadTemplate = () => {
-    const csv = '课程名称,slug,价格,分类,级别\n电力巡检基础,power-basic,99,电力巡检 AI,beginner';
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const csv = '课程名称,slug,价格,原价,分类,级别,描述,封面图URL,讲师\n电力巡检基础,power-basic,99,199,电力巡检 AI,beginner,基础入门课程,https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800,张老师';
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = '课程导入模板.csv';
     a.click();
+    URL.revokeObjectURL(url);
   };
 
   const toggleEdit = (id: string) => {
-    setPreviewData(prev => prev.map(item => 
-      item.id === id ? { ...item, isEditing: !item.isEditing } : item
-    ));
+    setPreviewData(prev => prev.map(item => item.id === id ? { ...item, isEditing: !item.isEditing } : item));
   };
 
   const updateItem = (id: string, field: keyof PreviewCourse, value: string | number) => {
@@ -83,17 +105,39 @@ const BatchUploadCourses: React.FC = () => {
       if (item.id !== id) return item;
       const updated = { ...item, [field]: value };
       updated.valid = !!updated.title;
+      updated.error = updated.title ? undefined : '课程名称不能为空';
       return updated;
     }));
   };
 
-  const handleConfirm = () => {
-    setShowSuccess(true);
-    setTimeout(() => {
-      setShowSuccess(false);
-      setFile(null);
-      setPreviewData([]);
-    }, 2000);
+  const handleConfirm = async () => {
+    setImporting(true);
+    const validItems = previewData.filter(d => d.valid);
+    const { data: categories } = await supabase.from('categories').select('id,name');
+    const catMap = new Map((categories || []).map(c => [c.name, c.id]));
+
+    const coursesToInsert = validItems.map(item => ({
+      title: item.title,
+      slug: item.slug,
+      price: item.price,
+      original_price: item.original_price || null,
+      level: item.level,
+      description: item.description || null,
+      cover_image: item.cover_image || null,
+      instructor_name: item.instructor_name || null,
+      category_id: catMap.get(item.category) || null,
+      is_published: true,
+      is_featured: false,
+    }));
+
+    const { error } = await supabase.from('courses').insert(coursesToInsert);
+    setImporting(false);
+    if (error) {
+      alert('导入失败: ' + error.message);
+    } else {
+      setShowSuccess(true);
+      setTimeout(() => { setShowSuccess(false); setFile(null); setPreviewData([]); }, 2000);
+    }
   };
 
   const validCount = previewData.filter(d => d.valid).length;
@@ -102,38 +146,21 @@ const BatchUploadCourses: React.FC = () => {
     <div className="p-6 max-w-6xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-800">批量上传课程</h1>
-        <button onClick={downloadTemplate} className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition">
-          <Download className="w-4 h-4" />
-          下载模板
-        </button>
+        <button onClick={downloadTemplate} className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"><Download className="w-4 h-4" />下载模板</button>
       </div>
 
-      <motion.div
-        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-        onDragLeave={() => setIsDragging(false)}
-        onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
-        animate={{ scale: isDragging ? 1.02 : 1, borderColor: isDragging ? '#3b82f6' : '#d1d5db' }}
-        className="border-2 border-dashed rounded-xl p-8 text-center cursor-pointer bg-gray-50 hover:bg-gray-100 transition"
-      >
-        <input ref={fileInputRef} type="file" accept=".csv,.xlsx" onChange={handleFileSelect} className="hidden" />
-        <motion.div animate={{ y: isDragging ? -5 : 0 }}>
-          <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-        </motion.div>
-        <p className="text-gray-600 mb-2">拖拽文件到此处，或点击上传</p>
-        <p className="text-sm text-gray-400">支持 Excel (.xlsx) 或 CSV (.csv) 格式</p>
+      <motion.div onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }} onDragLeave={() => setIsDragging(false)} onDrop={handleDrop} onClick={() => fileInputRef.current?.click()} animate={{ scale: isDragging ? 1.02 : 1, borderColor: isDragging ? '#3b82f6' : '#d1d5db' }} className="border-2 border-dashed rounded-xl p-8 text-center cursor-pointer bg-gray-50 hover:bg-gray-100 transition">
+        <input ref={fileInputRef} type="file" accept=".csv,.txt" onChange={handleFileSelect} className="hidden" />
+        <motion.div animate={{ y: isDragging ? -5 : 0 }}><Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" /></motion.div>
+        <p className="text-gray-600 mb-2">拖拽 CSV 文件到此处，或点击上传</p>
+        <p className="text-sm text-gray-400">支持 CSV 格式，先下载模板填写数据</p>
       </motion.div>
 
       <AnimatePresence>
         {isUploading && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mt-6">
-            <div className="flex justify-between text-sm text-gray-600 mb-2">
-              <span>正在解析文件...</span>
-              <span>{uploadProgress}%</span>
-            </div>
-            <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-              <motion.div className="h-full bg-blue-500" initial={{ width: 0 }} animate={{ width: `${uploadProgress}%` }} />
-            </div>
+            <div className="flex justify-between text-sm text-gray-600 mb-2"><span>正在解析文件...</span><span>{uploadProgress}%</span></div>
+            <div className="h-2 bg-gray-200 rounded-full overflow-hidden"><motion.div className="h-full bg-blue-500" initial={{ width: 0 }} animate={{ width: `${uploadProgress}%` }} /></div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -144,9 +171,7 @@ const BatchUploadCourses: React.FC = () => {
             <div className="flex items-center gap-2 p-4 bg-green-50 rounded-lg">
               <FileSpreadsheet className="w-5 h-5 text-green-600" />
               <span className="text-gray-700 flex-1">{file.name}</span>
-              <button onClick={() => { setFile(null); setPreviewData([]); }} className="text-red-500 hover:bg-red-50 p-1 rounded">
-                <X className="w-4 h-4" />
-              </button>
+              <button onClick={() => { setFile(null); setPreviewData([]); }} className="text-red-500 hover:bg-red-50 p-1 rounded"><X className="w-4 h-4" /></button>
             </div>
           </motion.div>
         )}
@@ -157,57 +182,30 @@ const BatchUploadCourses: React.FC = () => {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">导入预览</h3>
-              <div className="flex gap-4 text-sm">
-                <span className="text-green-600">有效: {validCount}</span>
-                <span className="text-red-600">无效: {previewData.length - validCount}</span>
-              </div>
+              <div className="flex gap-4 text-sm"><span className="text-green-600">有效: {validCount}</span><span className="text-red-600">无效: {previewData.length - validCount}</span></div>
             </div>
-
             <div className="bg-white rounded-lg shadow overflow-hidden">
               <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">状态</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">课程名称</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">分类</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">价格</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">级别</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">操作</th>
-                  </tr>
-                </thead>
+                <thead className="bg-gray-50"><tr><th className="px-4 py-3 text-left text-sm font-medium text-gray-600">状态</th><th className="px-4 py-3 text-left text-sm font-medium text-gray-600">课程名称</th><th className="px-4 py-3 text-left text-sm font-medium text-gray-600">分类</th><th className="px-4 py-3 text-left text-sm font-medium text-gray-600">价格</th><th className="px-4 py-3 text-left text-sm font-medium text-gray-600">级别</th><th className="px-4 py-3 text-left text-sm font-medium text-gray-600">操作</th></tr></thead>
                 <tbody className="divide-y divide-gray-200">
                   {previewData.map((item) => (
                     <motion.tr key={item.id} layout className={item.valid ? '' : 'bg-red-50'}>
+                      <td className="px-4 py-3">{item.valid ? <Check className="w-5 h-5 text-green-600" /> : <AlertCircle className="w-5 h-5 text-red-600" />}</td>
                       <td className="px-4 py-3">
-                        {item.valid ? <Check className="w-5 h-5 text-green-600" /> : <AlertCircle className="w-5 h-5 text-red-600" />}
-                      </td>
-                      <td className="px-4 py-3">
-                        {item.isEditing ? (
-                          <input value={item.title} onChange={(e) => updateItem(item.id, 'title', e.target.value)} className="border rounded px-2 py-1 w-full" />
-                        ) : (
-                          <div>
-                            <span className={item.valid ? '' : 'text-red-500'}>{item.title || '必填'}</span>
-                            {item.error && <span className="text-xs text-red-500 block">{item.error}</span>}
-                          </div>
-                        )}
+                        {item.isEditing ? <input value={item.title} onChange={(e) => updateItem(item.id, 'title', e.target.value)} className="border rounded px-2 py-1 w-full" /> : <div><span className={item.valid ? '' : 'text-red-500'}>{item.title || '必填'}</span>{item.error && <span className="text-xs text-red-500 block">{item.error}</span>}</div>}
                       </td>
                       <td className="px-4 py-3 text-sm">{item.category}</td>
                       <td className="px-4 py-3 text-sm">¥{item.price}</td>
                       <td className="px-4 py-3 text-sm">{item.level}</td>
-                      <td className="px-4 py-3">
-                        <button onClick={() => toggleEdit(item.id)} className="text-blue-600 hover:text-blue-800">
-                          {item.isEditing ? <Save className="w-4 h-4" /> : <Edit2 className="w-4 h-4" />}
-                        </button>
-                      </td>
+                      <td className="px-4 py-3"><button onClick={() => toggleEdit(item.id)} className="text-blue-600 hover:text-blue-800">{item.isEditing ? <Save className="w-4 h-4" /> : <Edit2 className="w-4 h-4" />}</button></td>
                     </motion.tr>
                   ))}
                 </tbody>
               </table>
             </div>
-
             <div className="mt-4 flex justify-end">
-              <button onClick={handleConfirm} disabled={validCount === 0} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 transition">
-                确认导入 ({validCount} 门课程)
+              <button onClick={handleConfirm} disabled={validCount === 0 || importing} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 transition">
+                {importing ? '导入中...' : `确认导入 (${validCount} 门课程)`}
               </button>
             </div>
           </motion.div>
@@ -218,9 +216,7 @@ const BatchUploadCourses: React.FC = () => {
         {showSuccess && (
           <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
             <motion.div className="bg-white rounded-xl p-8 text-center">
-              <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Check className="w-8 h-8 text-green-600" />
-              </motion.div>
+              <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4"><Check className="w-8 h-8 text-green-600" /></motion.div>
               <h3 className="text-xl font-bold mb-2">导入成功</h3>
               <p className="text-gray-600">成功导入 {validCount} 门课程</p>
             </motion.div>
