@@ -18,10 +18,10 @@ export function useCourses(opts?: { featured?: boolean; categoryId?: string }) {
   const [data, setData] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
-    let q = supabase.from('courses').select('*').eq('is_published', true).order('sort_order');
+    let q = supabase.from('courses').select('*').eq('is_published', true).order('created_at', { ascending: false });
     if (opts?.featured) q = q.eq('is_featured', true);
     if (opts?.categoryId) q = q.eq('category_id', opts.categoryId);
-    q.then(({ data }) => { setData(data || []); setLoading(false); });
+    q.then(({ data, error }) => { if (error) console.error('useCourses error:', error); setData(data || []); setLoading(false); });
   }, [opts?.featured, opts?.categoryId]);
   return { courses: data, loading };
 }
