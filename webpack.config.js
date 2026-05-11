@@ -1,5 +1,6 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const webpack = require('webpack');
 
 module.exports = (env, argv) => {
   const isDev = argv.mode !== 'production';
@@ -9,8 +10,10 @@ module.exports = (env, argv) => {
     entry: './src/index.tsx',
     output: {
       path: path.resolve(__dirname, 'dist'),
-      filename: 'bundle.js',
-      publicPath: 'auto'
+      filename: '[name].[contenthash:8].js',
+      chunkFilename: '[name].[contenthash:8].chunk.js',
+      publicPath: 'auto',
+      clean: true
     },
     module: {
       rules: [
@@ -56,7 +59,6 @@ module.exports = (env, argv) => {
           type: 'asset/resource'
         },
         {
-          // 兜底规则：PDF、文档、音视频等所有其他文件一律输出为独立资源文件
           exclude: /\.(js|jsx|ts|tsx|mjs|css|json|html)$/i,
           type: 'asset/resource'
         }
@@ -64,6 +66,32 @@ module.exports = (env, argv) => {
     },
     resolve: {
       extensions: ['.mjs', '.ts', '.tsx', '.js', '.jsx']
+    },
+    optimization: {
+      splitChunks: {
+        chunks: 'all',
+        cacheGroups: {
+          vendor: {
+            test: /[\\/]node_modules[\\/]/,
+            name: 'vendor',
+            chunks: 'all',
+            priority: 10
+          },
+          react: {
+            test: /[\\/]node_modules[\\/](react|react-dom|react-router-dom)[\\/]/,
+            name: 'react',
+            chunks: 'all',
+            priority: 20
+          },
+          supabase: {
+            test: /[\\/]node_modules[\\/]@supabase[\\/]/,
+            name: 'supabase',
+            chunks: 'all',
+            priority: 15
+          }
+        }
+      },
+      runtimeChunk: 'single'
     },
     devServer: {
       port: 3266,
@@ -79,7 +107,16 @@ module.exports = (env, argv) => {
       new HtmlWebpackPlugin({
         template: './index.html',
         inject: 'body'
+      }),
+      new webpack.DefinePlugin({
+        'process.env.SUPABASE_URL': JSON.stringify(process.env.SUPABASE_URL || ''),
+        'process.env.SUPABASE_ANON_KEY': JSON.stringify(process.env.SUPABASE_ANON_KEY || '')
       })
-    ]
+    ],
+    performance: {
+      hints: isDev ? false : 'warning',
+      maxEntrypointSize: 512000,
+      maxAssetSize: 256000
+    }
   };
 };

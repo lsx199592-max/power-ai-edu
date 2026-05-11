@@ -1,0 +1,346 @@
+-- =============================================
+-- 电力AI在线教育平台 - 完整数据库迁移脚本
+-- 请在 Supabase Dashboard > SQL Editor 中执行
+-- =============================================
+
+-- 用户资料表
+CREATE TABLE IF NOT EXISTS public.profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  username TEXT UNIQUE NOT NULL,
+  email TEXT,
+  avatar_url TEXT,
+  role TEXT DEFAULT 'user' CHECK (role IN ('user', 'vip', 'premium', 'admin')),
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 课程分类表
+CREATE TABLE IF NOT EXISTS public.categories (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  slug TEXT UNIQUE NOT NULL,
+  description TEXT,
+  icon TEXT,
+  parent_id UUID REFERENCES public.categories(id) ON DELETE SET NULL,
+  sort_order INT DEFAULT 0,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 课程表
+CREATE TABLE IF NOT EXISTS public.courses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title TEXT NOT NULL,
+  slug TEXT UNIQUE NOT NULL,
+  description TEXT,
+  cover_image TEXT,
+  category_id UUID REFERENCES public.categories(id) ON DELETE SET NULL,
+  instructor_name TEXT,
+  instructor_avatar TEXT,
+  price DECIMAL(10,2) DEFAULT 0,
+  original_price DECIMAL(10,2),
+  level TEXT CHECK (level IN ('beginner', 'intermediate', 'advanced')),
+  duration_hours INT DEFAULT 0,
+  lessons_count INT DEFAULT 0,
+  students_count INT DEFAULT 0,
+  rating DECIMAL(3,2) DEFAULT 0,
+  reviews_count INT DEFAULT 0,
+  is_featured BOOLEAN DEFAULT false,
+  is_published BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 课程章节表
+CREATE TABLE IF NOT EXISTS public.chapters (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  course_id UUID REFERENCES public.courses(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  description TEXT,
+  sort_order INT DEFAULT 0,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 课程课时表
+CREATE TABLE IF NOT EXISTS public.lessons (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  chapter_id UUID REFERENCES public.chapters(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  description TEXT,
+  video_url TEXT,
+  duration_minutes INT DEFAULT 0,
+  is_free BOOLEAN DEFAULT false,
+  sort_order INT DEFAULT 0,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 资源分类表
+CREATE TABLE IF NOT EXISTS public.resource_categories (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  slug TEXT UNIQUE NOT NULL,
+  description TEXT,
+  icon TEXT,
+  sort_order INT DEFAULT 0,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 资源表
+CREATE TABLE IF NOT EXISTS public.resources (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title TEXT NOT NULL,
+  description TEXT,
+  category_id UUID REFERENCES public.resource_categories(id) ON DELETE SET NULL,
+  file_url TEXT,
+  file_size INT,
+  file_type TEXT,
+  cover_image TEXT,
+  price DECIMAL(10,2) DEFAULT 0,
+  download_count INT DEFAULT 0,
+  is_free BOOLEAN DEFAULT false,
+  is_published BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 用户课程关联表
+CREATE TABLE IF NOT EXISTS public.user_courses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  course_id UUID REFERENCES public.courses(id) ON DELETE CASCADE,
+  progress INT DEFAULT 0,
+  purchased_at TIMESTAMP DEFAULT NOW(),
+  last_accessed_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(user_id, course_id)
+);
+
+-- 用户资源关联表
+CREATE TABLE IF NOT EXISTS public.user_resources (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  resource_id UUID REFERENCES public.resources(id) ON DELETE CASCADE,
+  purchased_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(user_id, resource_id)
+);
+
+-- 订单表
+CREATE TABLE IF NOT EXISTS public.orders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  order_no TEXT UNIQUE NOT NULL,
+  item_type TEXT CHECK (item_type IN ('course', 'resource', 'membership')),
+  item_id UUID,
+  item_name TEXT,
+  amount DECIMAL(10,2) NOT NULL,
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'cancelled', 'refunded')),
+  payment_method TEXT,
+  paid_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 会员订阅表
+CREATE TABLE IF NOT EXISTS public.memberships (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  plan_type TEXT CHECK (plan_type IN ('vip', 'premium')),
+  start_date TIMESTAMP NOT NULL,
+  end_date TIMESTAMP NOT NULL,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 课程评论表
+CREATE TABLE IF NOT EXISTS public.reviews (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  course_id UUID REFERENCES public.courses(id) ON DELETE CASCADE,
+  rating INT CHECK (rating >= 1 AND rating <= 5),
+  content TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(user_id, course_id)
+);
+
+-- 广告表
+CREATE TABLE IF NOT EXISTS public.advertisements (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title TEXT NOT NULL,
+  description TEXT,
+  image_url TEXT NOT NULL,
+  link_url TEXT,
+  position TEXT CHECK (position IN ('home_top', 'home_sidebar', 'course_detail', 'resource_list')),
+  is_active BOOLEAN DEFAULT true,
+  priority INT DEFAULT 0,
+  clicks INT DEFAULT 0,
+  impressions INT DEFAULT 0,
+  start_date TIMESTAMP,
+  end_date TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 国家电网培训资料专题表
+CREATE TABLE IF NOT EXISTS public.sgcc_materials (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title TEXT NOT NULL,
+  description TEXT,
+  category TEXT,
+  file_url TEXT,
+  file_size INT,
+  file_type TEXT,
+  cover_image TEXT,
+  download_count INT DEFAULT 0,
+  is_free BOOLEAN DEFAULT false,
+  is_featured BOOLEAN DEFAULT false,
+  sort_order INT DEFAULT 0,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 管理员角色表
+CREATE TABLE IF NOT EXISTS public.admin_users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  role TEXT DEFAULT 'admin' CHECK (role IN ('admin', 'super_admin')),
+  created_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(user_id)
+);
+
+-- 启用RLS
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.courses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.chapters ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.lessons ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.resource_categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.resources ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_courses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_resources ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.memberships ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.advertisements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sgcc_materials ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.admin_users ENABLE ROW LEVEL SECURITY;
+
+-- RLS策略：公开读取
+DO $$ BEGIN
+  CREATE POLICY "所有人可查看课程分类" ON public.categories FOR SELECT USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE POLICY "所有人可查看已发布课程" ON public.courses FOR SELECT USING (is_published = true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE POLICY "所有人可查看课程章节" ON public.chapters FOR SELECT USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE POLICY "所有人可查看课程课时" ON public.lessons FOR SELECT USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE POLICY "所有人可查看资源分类" ON public.resource_categories FOR SELECT USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE POLICY "所有人可查看已发布资源" ON public.resources FOR SELECT USING (is_published = true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE POLICY "所有人可查看课程评论" ON public.reviews FOR SELECT USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE POLICY "所有人可查看活跃广告" ON public.advertisements FOR SELECT USING (is_active = true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE POLICY "所有人可查看国家电网资料" ON public.sgcc_materials FOR SELECT USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- RLS策略：用户自己的数据
+DO $$ BEGIN
+  CREATE POLICY "用户可查看自己的资料" ON public.profiles FOR SELECT USING (auth.uid() = id);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE POLICY "用户可更新自己的资料" ON public.profiles FOR UPDATE USING (auth.uid() = id);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE POLICY "用户可查看自己的课程" ON public.user_courses FOR SELECT USING (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE POLICY "用户可查看自己的资源" ON public.user_resources FOR SELECT USING (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE POLICY "用户可查看自己的订单" ON public.orders FOR SELECT USING (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE POLICY "用户可查看自己的会员" ON public.memberships FOR SELECT USING (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE POLICY "用户可查看自己的评论" ON public.reviews FOR SELECT USING (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- RLS策略：管理员
+DO $$ BEGIN
+  CREATE POLICY "管理员可管理广告" ON public.advertisements FOR ALL USING (
+    EXISTS (SELECT 1 FROM public.admin_users WHERE user_id = auth.uid())
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE POLICY "管理员可管理国家电网资料" ON public.sgcc_materials FOR ALL USING (
+    EXISTS (SELECT 1 FROM public.admin_users WHERE user_id = auth.uid())
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE POLICY "管理员可查看管理员表" ON public.admin_users FOR SELECT USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- 用户注册触发器
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO public.profiles (id, username, email, avatar_url)
+  VALUES (
+    NEW.id,
+    COALESCE(NEW.raw_user_meta_data ->> 'username', split_part(NEW.email, '@', 1)),
+    NEW.email,
+    NEW.raw_user_meta_data ->> 'avatar_url'
+  );
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();

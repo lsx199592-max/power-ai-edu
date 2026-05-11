@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../supabase/types';
 
-const SUPABASE_URL = 'https://etpuquqxzzsjyiiixdfw.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_c4bRKSnuD_BTRzglr9AZdw_DBmwbU-m';
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://etpuquqxzzsjyiiixdfw.supabase.co';
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'sb_publishable_c4bRKSnuD_BTRzglr9AZdw_DBmwbU-m';
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {

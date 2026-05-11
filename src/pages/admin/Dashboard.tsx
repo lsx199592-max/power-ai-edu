@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
+import { Outlet, NavLink, useNavigate, Navigate } from 'react-router-dom';
+import { supabase } from '../../lib/supabase';
 
 const menuItems = [
   { path: '/admin/courses', label: '课程管理', icon: 'book' },
@@ -23,63 +23,35 @@ const icons: Record<string, React.ReactNode> = {
 
 const Dashboard: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setIsAdmin(false); return; }
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+      setIsAdmin(profile?.role === 'admin' || profile?.role === 'premium');
+    })();
+  }, []);
+
+  if (isAdmin === null) return <div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">验证权限中...</div>;
+  if (isAdmin === false) return <Navigate to="/login" replace />;
 
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100">
-      {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-gray-800 border-b border-gray-700 flex items-center px-4 z-50">
-        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-lg hover:bg-gray-700">
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
+        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-lg hover:bg-gray-700"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg></button>
         <span className="ml-4 text-lg font-semibold">后台管理</span>
-        <button onClick={() => navigate('/')} className="ml-auto p-2 rounded-lg hover:bg-gray-700 text-sm">
-          返回前台
-        </button>
+        <button onClick={() => navigate('/')} className="ml-auto p-2 rounded-lg hover:bg-gray-700 text-sm">返回前台</button>
       </div>
-
-      {/* Sidebar Overlay */}
-      {sidebarOpen && (
-        <div className="lg:hidden fixed inset-0 bg-black/50 z-40" onClick={() => setSidebarOpen(false)} />
-      )}
-
-      {/* Sidebar */}
+      {sidebarOpen && <div className="lg:hidden fixed inset-0 bg-black/50 z-40" onClick={() => setSidebarOpen(false)} />}
       <aside className={`fixed top-0 left-0 h-full w-64 bg-gray-800 border-r border-gray-700 z-50 transform transition-transform duration-300 lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="h-16 flex items-center px-6 border-b border-gray-700">
-          <span className="text-xl font-bold text-blue-400">管理后台</span>
-        </div>
-        <nav className="p-4 space-y-2">
-          {menuItems.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              onClick={() => setSidebarOpen(false)}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
-                  isActive ? 'bg-blue-600 text-white' : 'hover:bg-gray-700 text-gray-300'
-                }`
-              }
-            >
-              {icons[item.icon]}
-              <span>{item.label}</span>
-            </NavLink>
-          ))}
-        </nav>
-        <div className="absolute bottom-4 left-4 right-4">
-          <button onClick={() => navigate('/')} className="w-full py-2 px-4 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm transition-colors">
-            返回前台首页
-          </button>
-        </div>
+        <div className="h-16 flex items-center px-6 border-b border-gray-700"><span className="text-xl font-bold text-blue-400">管理后台</span></div>
+        <nav className="p-4 space-y-2">{menuItems.map((item) => (<NavLink key={item.path} to={item.path} onClick={() => setSidebarOpen(false)} className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${isActive ? 'bg-blue-600 text-white' : 'hover:bg-gray-700 text-gray-300'}`}>{icons[item.icon]}<span>{item.label}</span></NavLink>))}</nav>
+        <div className="absolute bottom-4 left-4 right-4"><button onClick={() => navigate('/')} className="w-full py-2 px-4 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm transition-colors">返回前台首页</button></div>
       </aside>
-
-      {/* Main Content */}
-      <main className="lg:ml-64 pt-16 lg:pt-0 min-h-screen">
-        <div className="p-4 lg:p-8">
-          <Outlet />
-        </div>
-      </main>
+      <main className="lg:ml-64 pt-16 lg:pt-0 min-h-screen"><div className="p-4 lg:p-8"><Outlet /></div></main>
     </div>
   );
 };

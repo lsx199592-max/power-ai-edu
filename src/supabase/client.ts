@@ -10,8 +10,8 @@ export function getSupabaseUrl(): string {
   return `${(window as any).MEOO_CONFIG?.meoo_app_access_url || location.origin}/sb-api`;
 }
 
-export const supabaseUrl = 'https://etpuquqxzzsjyiiixdfw.supabase.co';
-export const supabaseAnonKey = 'sb_publishable_c4bRKSnuD_BTRzglr9AZdw_DBmwbU-m';
+export const supabaseUrl = process.env.SUPABASE_URL || 'https://etpuquqxzzsjyiiixdfw.supabase.co';
+export const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || 'sb_publishable_c4bRKSnuD_BTRzglr9AZdw_DBmwbU-m';
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {

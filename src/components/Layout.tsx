@@ -142,8 +142,8 @@ const Layout: React.FC = () => {
             <div>
               <h4 className="font-semibold mb-4">联系我们</h4>
               <ul className="space-y-2 text-sm text-slate-400">
-                <li>邮箱: contact@powerai.edu</li>
-                <li>电话: +1 (555) 123-4567</li>
+                <li>邮箱: contact@powerai-edu.cn</li>
+                <li>电话: 400-888-0000</li>
               </ul>
             </div>
 

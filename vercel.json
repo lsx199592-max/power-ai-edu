@@ -30,11 +30,15 @@
         {
           "key": "X-XSS-Protection",
           "value": "1; mode=block"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
         }
       ]
     },
     {
-      "source": "/bundle.js",
+      "source": "/(.*\\.(js|css))",
       "headers": [
         {
           "key": "Cache-Control",
