@@ -109,8 +109,8 @@ module.exports = (env, argv) => {
         inject: 'body'
       }),
       new webpack.DefinePlugin({
-        'process.env.SUPABASE_URL': JSON.stringify(process.env.SUPABASE_URL || ''),
-        'process.env.SUPABASE_ANON_KEY': JSON.stringify(process.env.SUPABASE_ANON_KEY || '')
+        'process.env.SUPABASE_URL': JSON.stringify(process.env.SUPABASE_URL || 'https://etpuquqxzzsjyiiixdfw.supabase.co'),
+        'process.env.SUPABASE_ANON_KEY': JSON.stringify(process.env.SUPABASE_ANON_KEY || 'sb_publishable_c4bRKSnuD_BTRzglr9AZdw_DBmwbU-m')
       })
     ],
     performance: {
