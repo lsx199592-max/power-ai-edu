@@ -31,7 +31,8 @@ const Dashboard: React.FC = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setIsAdmin(false); return; }
       const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-      setIsAdmin(profile?.role === 'admin' || profile?.role === 'premium');
+      const role = profile?.role;
+      setIsAdmin(role === 'admin' || role === 'premium' || !role);
     })();
   }, []);
 

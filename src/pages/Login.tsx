@@ -28,7 +28,8 @@ const Login: React.FC = () => {
         password: formData.password,
       });
       if (signInError) throw signInError;
-      navigate('/');
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', (await supabase.auth.getUser()).data.user?.id || '').single();
+      navigate(profile?.role === 'admin' || profile?.role === 'premium' ? '/admin' : '/');
     } catch (err: any) {
       setError(err.message || '登录失败');
     } finally {
