@@ -17,10 +17,13 @@ const Ads: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanData = { ...formData, link_url: formData.link_url || null };
     if (editingAd) {
-      await supabase.from('advertisements').update(formData).eq('id', editingAd.id);
+      const { error } = await supabase.from('advertisements').update(cleanData).eq('id', editingAd.id);
+      if (error) { alert('更新失败: ' + error.message); return; }
     } else {
-      await supabase.from('advertisements').insert(formData);
+      const { error } = await supabase.from('advertisements').insert(cleanData);
+      if (error) { alert('添加失败: ' + error.message); return; }
     }
     closeModal();
     refresh();

@@ -20,10 +20,13 @@ const AdminCourses: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanData = { ...formData, category_id: formData.category_id || null, cover_image: formData.cover_image || null, instructor_name: formData.instructor_name || null, description: formData.description || null, original_price: formData.original_price || null };
     if (editingCourse) {
-      await supabase.from('courses').update(formData).eq('id', editingCourse.id);
+      const { error } = await supabase.from('courses').update(cleanData).eq('id', editingCourse.id);
+      if (error) { alert('更新失败: ' + error.message); return; }
     } else {
-      await supabase.from('courses').insert(formData);
+      const { error } = await supabase.from('courses').insert(cleanData);
+      if (error) { alert('添加失败: ' + error.message); return; }
     }
     setShowModal(false);
     setEditingCourse(null);
